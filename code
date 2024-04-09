@@ -1,0 +1,64 @@
+
+-# Install required packages
+!pip install openai pandas xlrd openpyxl
+
+# Import necessary libraries
+import pandas as pd
+import openai
+from google.colab import files
+import io
+
+# Function to upload a file
+def upload_file():
+    uploaded = files.upload()
+    for filename in uploaded.keys():
+        print(f"User uploaded file '{filename}' with length {len(uploaded[filename])} bytes")
+    return next(iter(uploaded))  # Return the name of the first uploaded file
+
+# Function to download a file
+def download_file(df, filename="output.xlsx"):
+    df.to_excel(filename)
+    files.download(filename)
+
+# Function to process the Excel file and generate outputs
+def process_excel(filename, openai_api_key):
+    # Read the Excel file
+    df = pd.read_excel(filename)
+    # Initialize the OpenAI API
+    openai.api_key = openai_api_key
+    
+    # Check if the required column exists
+    if 'Words' in df.columns:
+        # Generate outputs using OpenAI's completion
+        responses = []
+        for word in df['Words']:
+            try:
+                response = openai.Completion.create(
+                  model="text-davinci-003",  # Choose the model
+                  prompt=f"Generate a creative paragraph based on this word: {word}",
+                  temperature=0.7,
+                  max_tokens=100
+                )
+                responses.append(response.choices[0].text.strip())
+            except Exception as e:
+                print(f"Failed to generate response for {word}: {str(e)}")
+                responses.append("Error generating response")
+                
+        df['OpenAI_Response'] = responses
+        return df
+    else:
+        print("The Excel file does not contain a 'Words' column.")
+        return pd.DataFrame()
+
+# Main function to orchestrate the upload, processing, and download
+def main(openai_api_key):
+    print("Please upload your Excel file.")
+    filename = upload_file()
+    df = process_excel(filename, openai_api_key)
+    if not df.empty:
+        print("Processing complete. Downloading the file now.")
+        download_file(df)
+    else:
+        print("There was an error processing your file.")
+
+
